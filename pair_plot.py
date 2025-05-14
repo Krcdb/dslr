@@ -30,8 +30,8 @@ class PairPlot:
 
     numeric_cols = df.select_dtypes(include="number").columns
 
-    if "House" in df.columns:
-        color = df["House"]
+    if "Hogwarts House" in df.columns:
+      color = df["Hogwarts House"]
     else:
         color = None
 
@@ -41,7 +41,8 @@ class PairPlot:
         color=color,
         title="Pair Plot of Numeric Features",
         height=1000,
-        width=1000
+        width=1000,
+        opacity=0.5
     )
 
     fig.update_traces(diagonal_visible=False)

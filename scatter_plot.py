@@ -2,88 +2,102 @@ import argparse
 import signal
 import sys
 import numpy as np
+import pandas as pd
+import itertools
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-
 from utils import load_csv_np
 
 
-class Scatter:
-  def __init__(self, input):
-    self.data = load_csv_np(input)
-  
-  def compute(self):
-    header = self.data[0]
-    rows = self.data[1:]
-    houses = rows[:, 1]
-    
-    print(houses)
-    num_columns = self.data.shape[1]
-    numeric_indices = []
-    numeric_names = []
+class ScatterPlotGrid:
+    def __init__(self, input_path):
+        self.data = load_csv_np(input_path)
 
-    for i in range(num_columns):
-      try:
-          np.array(rows[:, i], dtype=float)
-          numeric_indices.append(i)
-          numeric_names.append(header[i])
-      except ValueError:
-          continue
+    def compute(self):
+        header = self.data[0]
+        rows = self.data[1:]
+        df = pd.DataFrame(rows, columns=header)
 
-    n = len(numeric_indices)
-    cols = 2
-    rows_count = (n + cols - 1) // cols
+        # Convert numeric columns
+        for col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='ignore')
 
-    fig = make_subplots(rows=rows_count, cols=cols, subplot_titles=numeric_names)
+        # Identify Hogwarts House column
+        house_col = next((col for col in df.columns if "house" in col.lower()), None)
+        if house_col is None:
+            print("Error: 'Hogwarts House' column not found.")
+            return
 
-    for idx, col_index in enumerate(numeric_indices):
-      try:
-        col = np.array(rows[:, col_index], dtype=float)
-        col = col[~np.isnan(col)]
-        r = idx // cols + 1
-        c = idx % cols + 1
+        numeric_cols = df.select_dtypes(include='number').columns
+        df = df[[house_col] + list(numeric_cols)].dropna()
 
-        fig.add_trace(
-            go.Scatter(
-                y=col,
-                mode='markers',
-                name=header[col_index],
-                marker=dict(size=6),
-                showlegend=False
-            ),
-            row=r,
-            col=c
+        feature_pairs = list(itertools.combinations(numeric_cols, 2))
+        num_plots = len(feature_pairs)
+
+        cols = 3
+        rows = (num_plots + cols - 1) // cols
+
+        fig = make_subplots(
+            rows=rows,
+            cols=cols,
+            subplot_titles=[f"{x} vs {y}" for x, y in feature_pairs],
+            horizontal_spacing=0.04,
+            vertical_spacing=0.02  # ↓↓↓ Reduce vertical spacing here
         )
-      except Exception as e:
-        print(f"Error plotting column {header[col_index]}: {e}")
 
-    fig.update_layout(
-        title_text="Scatter Plots of Numeric Features",
-        height=300 * rows_count,
-        width=900,
-        showlegend=False
-    )
-    fig.show()
+
+        house_colors = {
+            'Ravenclaw': 'blue',
+            'Slytherin': 'green',
+            'Gryffindor': 'red',
+            'Hufflepuff': 'orange'
+        }
+
+        for i, (x_feat, y_feat) in enumerate(feature_pairs):
+            r = i // cols + 1
+            c = i % cols + 1
+
+            for house in df[house_col].unique():
+                house_df = df[df[house_col] == house]
+                fig.add_trace(
+                    go.Scatter(
+                        x=house_df[x_feat],
+                        y=house_df[y_feat],
+                        mode='markers',
+                        name=house if i == 0 else None,
+                        marker=dict(color=house_colors.get(house, 'gray'), size=5),
+                        legendgroup=house,
+                        showlegend=(i == 0),
+                        opacity=0.5
+                    ),
+                    row=r,
+                    col=c,
+                )
+
+        fig.update_layout(
+            height=300 * rows,
+            width=1000,
+            title_text="Scatter Plot Grid of Numeric Features by House",
+            showlegend=True
+        )
+        fig.show()
+
 
 def optparse():
-  parser = argparse.ArgumentParser()
-  parser.add_argument(
-    '--input',
-    '-i',
-    action="store",
-    dest="input",
-    default="resources/dataset_train.csv",
-    help="set the input path file"
-  )
-  
-  return parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--input', '-i',
+        default="resources/dataset_train.csv",
+        help="Set the input path file"
+    )
+    return parser.parse_args()
+
 
 def signal_handler(sig, frame):
-  sys.exit(0)
+    sys.exit(0)
+
 
 if __name__ == '__main__':
-  signal.signal(signal.SIGINT, signal_handler)
-  option = optparse()
-  
-  
-  Scatter(option.input).compute()
+    signal.signal(signal.SIGINT, signal_handler)
+    args = optparse()
+    ScatterPlotGrid(args.input).compute()
