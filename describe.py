@@ -28,7 +28,7 @@ class Describe:
     for i in range(self.data.shape[1]):
       try:
         numeric_col = np.array(rows[:, i], dtype=float)
-        numeric_col = numeric_col[~np.isnan(numeric_col)]
+        numeric_col = np.sort(numeric_col[~np.isnan(numeric_col)])
 
         n = len(numeric_col)
         first_quartile_index = 25 * n / 100

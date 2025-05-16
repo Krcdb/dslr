@@ -15,24 +15,19 @@ class HandDistributionPlot:
         header = self.data[0]
         rows = self.data[1:]
 
-        # Find indices
         house_idx = header.tolist().index("Hogwarts House")
         hand_idx = header.tolist().index("Best Hand")
 
-        # Extract relevant columns
         houses = rows[:, house_idx]
         hands = rows[:, hand_idx]
 
-        # Clean data: remove missing or invalid entries
         valid_mask = (hands != '') & (houses != '')
         hands = hands[valid_mask]
         houses = houses[valid_mask]
 
-        # Count occurrences
         df = pd.DataFrame({'House': houses, 'Hand': hands})
         counts = df.groupby(['House', 'Hand']).size().unstack(fill_value=0)
 
-        # Create bar chart
         fig = go.Figure()
 
         for hand in ['Left', 'Right']:
